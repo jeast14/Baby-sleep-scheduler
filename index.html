@@ -5,14 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Baby Sleep Scheduler</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#6b6bf5">
+<meta name="theme-color" content="#B4876E">
 <style>
 :root {
-  --bg:#f7f7fb; --card:#fff; --text:#111; --muted:#666;
-  --accent:#6b6bf5; --soft:#f0f1ff; --good:#e6f7ee; --warn:#fff3cd;
+  --bg:#F5F2EE;
+  --card:#FFFFFF;
+  --text:#111111;
+  --muted:#6b6b6b;
+  --accent:#B4876E;
+  --soft:#F7F3EF;
+  --good:#EDE3DB;
+  --warn:#F8E6E6;
+  --maroon:#782D3C;
 }
 body.dark {
-  --bg:#121212; --card:#1e1e1e; --text:#f2f2f2; --muted:#aaa; --soft:#2a2a3d;
+  --bg:#1f1b18;
+  --card:#2a2420;
+  --text:#f3efe9;
+  --muted:#c5bfb9;
+  --soft:#2f2722;
 }
 body {
   margin:0; padding:16px; background:var(--bg); color:var(--text);
@@ -32,7 +43,7 @@ button{
   width:100%;padding:12px;margin-top:12px;border:none;border-radius:14px;
   background:var(--accent);color:white;font-weight:600;font-size:1rem
 }
-.secondary{background:#e6e7ff;color:#333}
+.secondary{background:var(--soft);color:var(--text);border:1px solid #ddd}
 .result{background:var(--soft);padding:12px;border-radius:14px;margin-top:12px}
 .good{background:var(--good);padding:10px;border-radius:12px}
 .warn{background:var(--warn);padding:10px;border-radius:12px}
@@ -41,11 +52,12 @@ button{
 .row button{flex:1;}
 .napBox{background:var(--soft);padding:12px;border-radius:12px;margin-top:12px}
 canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:var(--soft);}
+.maroon{color:var(--maroon)}
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Adaptive Baby Sleep Scheduler</h1>
+<h1 class="maroon">Adaptive Baby Sleep Scheduler</h1>
 <div class="card">
 <label>Morning Wake Time</label>
 <input type="time" id="wake">
@@ -62,13 +74,13 @@ canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:
 <button onclick="calc()">Generate Schedule</button>
 </div>
 <div class="card">
-<h3>Suggested Sleep Plan</h3>
+<h3 class="maroon">Suggested Sleep Plan</h3>
 <div id="out" class="result muted">Enter details to calculate</div>
 <button class="secondary" onclick="resetDay()">Reset Day</button>
 <button class="secondary" onclick="toggle()">Toggle Dark Mode</button>
 </div>
 <div class="card">
-<h3>Nap Timer & Recording</h3>
+<h3 class="maroon">Nap Timer & Recording</h3>
 <div class="row">
   <button onclick="startNap()">Start Nap</button>
   <button onclick="endNap()">End Nap</button>
@@ -86,7 +98,7 @@ canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:
   <div id="napStatus" class="muted">No nap recorded yet.</div>
 </div>
 <hr>
-<h4>Manual Entry</h4>
+<h4 class="maroon">Manual Entry</h4>
 <label>Actual Nap Start</label>
 <input type="time" id="manualStart">
 <label>Actual Nap End</label>
@@ -95,12 +107,12 @@ canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:
 <button onclick="deleteNap()" class="secondary">Delete Selected Nap</button>
 </div>
 <div class="card">
-<h3>Saved Days</h3>
+<h3 class="maroon">Saved Days</h3>
 <div id="hist" class="muted">No saved days yet</div>
 <button class="secondary" onclick="clearHistory()">Clear All Saved Days</button>
 </div>
 <div class="card">
-<h3>Weekly Trends</h3>
+<h3 class="maroon">Weekly Trends</h3>
 <div id="trends" class="muted">No data yet</div>
 <canvas id="barChart"></canvas>
 <canvas id="lineChart"></canvas>
@@ -390,7 +402,7 @@ function drawBarChart(data){
     const x = padding + i*(barWidth+10) + 10;
     const height = (d.mins / maxVal) * (canvas.height - padding*2);
     const y = canvas.height - padding - height;
-    ctx.fillStyle = "#6b6bf5";
+    ctx.fillStyle = "#B4876E";
     ctx.fillRect(x, y, barWidth, height);
     ctx.fillStyle = "#000";
     ctx.font = "12px Arial";
@@ -417,7 +429,7 @@ function drawLineChart(data){
   ctx.lineTo(canvas.width-padding, canvas.height-padding);
   ctx.stroke();
   // line
-  ctx.strokeStyle = "#6b6bf5";
+  ctx.strokeStyle = "#782D3C";
   ctx.lineWidth = 3;
   ctx.beginPath();
   data.forEach((d, i) => {
