@@ -5,50 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Baby Sleep Scheduler</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#B4876E">
+<meta name="theme-color" content="#6b6bf5">
 <style>
 :root {
-  --bg:#F5F2EE; 
-  --card:#fff; 
-  --text:#111; 
-  --muted:#666;
-  --accent:#B4876E; 
-  --maroon:#782D3C;
-  --soft:#F7F3EF; 
-  --good:#EDE3DB; 
-  --warn:#F8E6E6;
+  --bg:#f7f7fb; --card:#fff; --text:#111; --muted:#666;
+  --accent:#6b6bf5; --soft:#f0f1ff; --good:#e6f7ee; --warn:#fff3cd;
 }
 body.dark {
-  --bg:#121212; 
-  --card:#1e1e1e; 
-  --text:#f2f2f2; 
-  --muted:#aaa; 
-  --soft:#2a2a3d;
+  --bg:#121212; --card:#1e1e1e; --text:#f2f2f2; --muted:#aaa; --soft:#2a2a3d;
 }
 body {
   margin:0; padding:16px; background:var(--bg); color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
 }
 .container{max-width:520px;margin:auto}
-h1{text-align:center;font-size:1.5rem; color:var(--maroon);}
+h1{text-align:center;font-size:1.5rem}
 .card{
   background:var(--card); border-radius:18px; padding:16px; margin-bottom:16px;
   box-shadow:0 4px 14px rgba(0,0,0,.06)
 }
 label{font-weight:600;display:block;margin-top:12px}
 input,select,textarea{
-  width:100%;padding:10px;margin-top:4px;border-radius:12px;border:1px solid #ddd;font-size:1rem;
-  background:var(--soft);
+  width:100%;padding:10px;margin-top:4px;border-radius:12px;border:1px solid #ddd;font-size:1rem
 }
 button{
   width:100%;padding:12px;margin-top:12px;border:none;border-radius:14px;
   background:var(--accent);color:white;font-weight:600;font-size:1rem
 }
-.secondary{
-  background:#fff;
-  color:var(--maroon);
-  border:1px solid var(--maroon);
-}
+.secondary{background:#e6e7ff;color:#333}
 .result{background:var(--soft);padding:12px;border-radius:14px;margin-top:12px}
 .good{background:var(--good);padding:10px;border-radius:12px}
 .warn{background:var(--warn);padding:10px;border-radius:12px}
@@ -78,13 +62,13 @@ canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:
 <button onclick="calc()">Generate Schedule</button>
 </div>
 <div class="card">
-<h3 style="color:var(--maroon)">Suggested Sleep Plan</h3>
+<h3>Suggested Sleep Plan</h3>
 <div id="out" class="result muted">Enter details to calculate</div>
 <button class="secondary" onclick="resetDay()">Reset Day</button>
 <button class="secondary" onclick="toggle()">Toggle Dark Mode</button>
 </div>
 <div class="card">
-<h3 style="color:var(--maroon)">Nap Timer & Recording</h3>
+<h3>Nap Timer & Recording</h3>
 <div class="row">
   <button onclick="startNap()">Start Nap</button>
   <button onclick="endNap()">End Nap</button>
@@ -111,12 +95,12 @@ canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:
 <button onclick="deleteNap()" class="secondary">Delete Selected Nap</button>
 </div>
 <div class="card">
-<h3 style="color:var(--maroon)">Saved Days</h3>
+<h3>Saved Days</h3>
 <div id="hist" class="muted">No saved days yet</div>
 <button class="secondary" onclick="clearHistory()">Clear All Saved Days</button>
 </div>
 <div class="card">
-<h3 style="color:var(--maroon)">Weekly Trends</h3>
+<h3>Weekly Trends</h3>
 <div id="trends" class="muted">No data yet</div>
 <canvas id="barChart"></canvas>
 <canvas id="lineChart"></canvas>
@@ -145,6 +129,40 @@ const rules = {
   "6-9": {naps:2, wakeWindow:180, napLength:90},
   "9-12": {naps:2, wakeWindow:210, napLength:90}
 };
+
+function migrateHistory() {
+  const raw = localStorage.getItem('sleepHistory');
+  if (!raw) return;
+
+  let history;
+  try {
+    history = JSON.parse(raw);
+  } catch {
+    console.warn("Sleep history is corrupted");
+    return;
+  }
+
+  // If already migrated, stop
+  if (history.length && history[0].migrated) return;
+
+  const migrated = history.map(entry => {
+    const naps = entry.naps || [];
+    const fixedNaps = naps.map(n => ({
+      nap: n.nap,
+      start: Number(n.start),
+      end: Number(n.end)
+    }));
+
+    return {
+      ...entry,
+      naps: fixedNaps,
+      migrated: true
+    };
+  });
+
+  localStorage.setItem('sleepHistory', JSON.stringify(migrated));
+}
+
 let dynamic = null;
 let timer = null;
 let timerStart = null;
@@ -360,17 +378,19 @@ function drawBarChart(data){
   const padding = 30;
   const barWidth = (canvas.width - padding*2) / data.length - 10;
   const maxVal = Math.max(...data.map(d=>d.mins), 60);
+  // axis
   ctx.strokeStyle = "#888";
   ctx.beginPath();
   ctx.moveTo(padding, padding);
   ctx.lineTo(padding, canvas.height-padding);
   ctx.lineTo(canvas.width-padding, canvas.height-padding);
   ctx.stroke();
+  // bars
   data.forEach((d, i) => {
     const x = padding + i*(barWidth+10) + 10;
     const height = (d.mins / maxVal) * (canvas.height - padding*2);
     const y = canvas.height - padding - height;
-    ctx.fillStyle = "#B4876E";
+    ctx.fillStyle = "#6b6bf5";
     ctx.fillRect(x, y, barWidth, height);
     ctx.fillStyle = "#000";
     ctx.font = "12px Arial";
@@ -389,13 +409,15 @@ function drawLineChart(data){
   const padding = 30;
   const maxVal = Math.max(...data.map(d=>d.mins), 60);
   const minVal = Math.min(...data.map(d=>d.mins), 0);
+  // axis
   ctx.strokeStyle = "#888";
   ctx.beginPath();
   ctx.moveTo(padding, padding);
   ctx.lineTo(padding, canvas.height-padding);
   ctx.lineTo(canvas.width-padding, canvas.height-padding);
   ctx.stroke();
-  ctx.strokeStyle = "#B4876E";
+  // line
+  ctx.strokeStyle = "#6b6bf5";
   ctx.lineWidth = 3;
   ctx.beginPath();
   data.forEach((d, i) => {
@@ -409,6 +431,7 @@ function drawLineChart(data){
   ctx.font = "14px Arial";
   ctx.fillText("Sleep trend (last 7 days)", padding, padding-10);
 }
+migrateHistory();
 render();
 renderTrends();
 // PWA install prompt support
