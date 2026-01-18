@@ -1,34 +1,376 @@
-const CACHE_NAME = "baby-sleep-scheduler-v1";
-const FILES_TO_CACHE = [
-  "/index.html",
-  "/manifest.json",
-  "/service-worker.js",
-  "/icon-192.png",
-  "/icon-512.png"
-];
+function add(time, mins){
+  const [h,m]=time.split(':').map(Number);
+  const d=new Date();
+  d.setHours(h,m+mins);
+  return d.toTimeString().slice(0,5);
+}
 
-self.addEventListener("install", (evt) => {
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(FILES_TO_CACHE))
-  );
-});
+function timeToMinutes(t){
+  const [h,m]=t.split(':').map(Number);
+  return h*60+m;
+}
 
-self.addEventListener("activate", (evt) => {
-  evt.waitUntil(
-    caches.keys().then((keyList) =>
-      Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      )
-    )
-  );
-});
+function minutesToTime(min){
+  const h = Math.floor(min/60)%24;
+  const m = min%60;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+}
 
-self.addEventListener("fetch", (evt) => {
-  evt.respondWith(
-    caches.match(evt.request).then((resp) => {
-      return resp || fetch(evt.request);
-    })
-  );
+const rules = {
+  "0-3": {naps:5, wakeWindow:60, napLength:60},
+  "3-4": {naps:4, wakeWindow:90, napLength:60},
+  "4-6": {naps:3, wakeWindow:150, napLength:90},
+  "6-9": {naps:2, wakeWindow:180, napLength:90},
+  "9-12": {naps:2, wakeWindow:210, napLength:90}
+};
+
+let dynamic = null;
+let timer = null;
+let timerStart = null;
+
+function updateNapDropdown() {
+  const select = document.getElementById("napSelect");
+  select.innerHTML = "";
+
+  const napCount = dynamic
+    ? Math.max(dynamic.naps, dynamic.napsRecorded.length)
+    : 5;
+
+  for (let i = 1; i <= napCount; i++) {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `Nap ${i}`;
+    select.appendChild(opt);
+  }
+}
+
+function calc(){
+  const wake = document.getElementById('wake').value;
+  const age = document.getElementById('age').value;
+  if(!wake){ alert('Enter wake time'); return; }
+  const r = rules[age];
+
+  dynamic = {
+    age,
+    wake,
+    wakeWindow: r.wakeWindow,
+    napLength: r.napLength,
+    naps: r.naps,
+    napsRecorded: []
+  };
+
+  updateNapDropdown();
+  updateSchedule();
+}
+
+function updateSchedule(){
+  if(!dynamic) return;
+  let cur = dynamic.wake;
+  let total = 0;
+  let out = "";
+
+  for(let i=1;i<=dynamic.naps;i++){
+    const actual = dynamic.napsRecorded.find(n => n.nap === i);
+    if(actual){
+      const duration = actual.end - actual.start;
+      total += duration;
+      out += `<div><strong>Nap ${i} (actual)</strong>: ${minutesToTime(actual.start)} – ${minutesToTime(actual.end)} (${duration} mins)</div>`;
+      cur = minutesToTime(actual.end);
+      adjustWakeWindow(duration, dynamic.napLength);
+    } else {
+      const ns = add(cur, dynamic.wakeWindow);
+      const ne = add(ns, dynamic.napLength);
+      total += dynamic.napLength;
+      out += `<div><strong>Nap ${i} (plan)</strong>: ${ns} – ${ne}</div>`;
+      cur = ne;
+    }
+  }
+
+  const bedtimeRange = bedtimeRangeCalc(dynamic.wake);
+  out += `<div><strong>Bedtime estimate:</strong> ${bedtimeRange}</div>`;
+  out += `<div><strong>Total daytime sleep:</strong> ${(total/60).toFixed(2)} hrs</div>`;
+
+  document.getElementById('out').innerHTML = out;
+  document.getElementById('out').classList.remove('muted');
+}
+
+function bedtimeRangeCalc(wake){
+  const wakeMin = timeToMinutes(wake);
+  const minBed = wakeMin + (13*60);
+  const maxBed = wakeMin + (14*60);
+  return `${minutesToTime(minBed)} – ${minutesToTime(maxBed)}`;
+}
+
+function adjustWakeWindow(actualDuration, expected){
+  const diff = actualDuration - expected;
+  if(diff >= 30) dynamic.wakeWindow += 30;
+  else if(diff >= 15) dynamic.wakeWindow += 15;
+  else if(diff <= -30) dynamic.wakeWindow -= 30;
+  else if(diff <= -15) dynamic.wakeWindow -= 15;
+
+  const caps = {
+    "0-3": {min:30, max:90},
+    "3-4": {min:60, max:120},
+    "4-6": {min:90, max:180},
+    "6-9": {min:120, max:210},
+    "9-12": {min:150, max:240}
+  };
+
+  const cap = caps[dynamic.age];
+  if(dynamic.wakeWindow < cap.min) dynamic.wakeWindow = cap.min;
+  if(dynamic.wakeWindow > cap.max) dynamic.wakeWindow = cap.max;
+}
+
+function startNap(){
+  timerStart = new Date();
+  timer = setInterval(() => {
+    const diff = Math.floor((new Date() - timerStart)/1000);
+    document.getElementById('timerStatus').innerText = `Nap running: ${Math.floor(diff/60)}m ${diff%60}s`;
+  }, 1000);
+}
+
+function endNap(){
+  if(!timerStart){
+    alert("Start the nap first.");
+    return;
+  }
+  clearInterval(timer);
+
+  const end = new Date();
+  const startMin = timerStart.getHours()*60 + timerStart.getMinutes();
+  const endMin = end.getHours()*60 + end.getMinutes();
+  const nap = parseInt(document.getElementById('napSelect').value);
+
+  dynamic.napsRecorded = dynamic.napsRecorded.filter(n => n.nap !== nap);
+  dynamic.napsRecorded.push({nap, start: startMin, end: endMin});
+
+  document.getElementById('napStatus').innerText = `Recorded Nap ${nap}: ${minutesToTime(startMin)}–${minutesToTime(endMin)}`;
+  timerStart = null;
+  document.getElementById('timerStatus').innerText = "Timer not started";
+
+  updateNapDropdown();
+  updateSchedule();
+}
+
+function saveManualNap(){
+  if(!dynamic) return alert("Generate schedule first");
+
+  const start = document.getElementById('manualStart').value;
+  const end = document.getElementById('manualEnd').value;
+  if(!start || !end) return alert("Enter start and end times");
+
+  const startMin = timeToMinutes(start);
+  const endMin = timeToMinutes(end);
+  if(endMin <= startMin) return alert("End time must be after start time");
+
+  const nap = parseInt(document.getElementById('napSelect').value);
+  dynamic.napsRecorded = dynamic.napsRecorded.filter(n => n.nap !== nap);
+  dynamic.napsRecorded.push({nap, start: startMin, end: endMin});
+
+  document.getElementById('napStatus').innerText = `Recorded Nap ${nap}: ${start}–${end}`;
+
+  updateNapDropdown();
+  updateSchedule();
+}
+
+function deleteNap(){
+  if(!dynamic) return;
+  const nap = parseInt(document.getElementById('napSelect').value);
+
+  dynamic.napsRecorded = dynamic.napsRecorded.filter(n => n.nap !== nap);
+  document.getElementById('napStatus').innerText = `Deleted Nap ${nap}`;
+
+  updateNapDropdown();
+  updateSchedule();
+}
+
+function resetDay(){
+  dynamic = null;
+  document.getElementById('out').innerHTML = "Enter details to calculate";
+  document.getElementById('out').classList.add('muted');
+  document.getElementById('napStatus').innerText = "No nap recorded yet.";
+  document.getElementById('timerStatus').innerText = "Timer not started";
+}
+
+function save(){
+  const history = JSON.parse(localStorage.getItem('sleepHistory') || '[]');
+  history.unshift({
+    date: new Date().toLocaleDateString(),
+    wake: document.getElementById('wake').value,
+    age: document.getElementById('age').value,
+    naps: dynamic ? dynamic.napsRecorded : [],
+    notes: document.getElementById('notes').value
+  });
+  localStorage.setItem('sleepHistory', JSON.stringify(history));
+  render();
+  renderTrends();
+}
+
+function render(){
+  const history = JSON.parse(localStorage.getItem('sleepHistory') || '[]');
+  const el = document.getElementById('hist');
+  if(!history.length){
+    el.innerText = "No saved days yet";
+    return;
+  }
+  el.innerHTML = history.map((d,i) =>
+    `<div class="result">
+      <strong>${d.date}</strong>
+      <button onclick="deleteDay(${i})" style="float:right;">Delete</button>
+      <br>Wake: ${d.wake} | Age: ${d.age}
+      <div class="muted">Naps: ${d.naps.length}</div>
+      <div class="muted">${d.notes||''}</div>
+    </div>`
+  ).join('');
+}
+
+function deleteDay(index){
+  const history = JSON.parse(localStorage.getItem('sleepHistory') || '[]');
+  history.splice(index, 1);
+  localStorage.setItem('sleepHistory', JSON.stringify(history));
+  render();
+  renderTrends();
+}
+
+function clearHistory(){
+  localStorage.removeItem('sleepHistory');
+  render();
+  renderTrends();
+}
+
+function toggle(){
+  document.body.classList.toggle('dark');
+}
+
+function renderTrends(){
+  const history = JSON.parse(localStorage.getItem('sleepHistory') || '[]');
+  if(!history.length){
+    document.getElementById('trends').innerText = "No data yet";
+    drawEmptyCharts();
+    return;
+  }
+
+  const last7 = history.slice(0,7);
+  let totalSleep = 0;
+  let totalNaps = 0;
+  let daily = [];
+
+  last7.forEach(d => {
+    const napMins = d.naps.reduce((sum,n) => sum + (n.end - n.start), 0);
+    totalSleep += napMins;
+    totalNaps += d.naps.length;
+    daily.push({date: d.date, mins: napMins});
+  });
+
+  const avgSleep = totalSleep / last7.length;
+  const avgNaps = totalNaps / last7.length;
+
+  document.getElementById('trends').innerHTML = `
+    <div class="result">
+      <strong>Last 7 days</strong><br>
+      Avg daytime sleep: ${(avgSleep/60).toFixed(2)} hrs<br>
+      Avg naps/day: ${avgNaps.toFixed(1)}
+    </div>
+  `;
+
+  drawBarChart(daily);
+  drawLineChart(daily);
+}
+
+function drawEmptyCharts(){
+  const bar = document.getElementById('barChart');
+  const line = document.getElementById('lineChart');
+  const ctx1 = bar.getContext('2d');
+  const ctx2 = line.getContext('2d');
+
+  ctx1.clearRect(0,0,bar.width, bar.height);
+  ctx2.clearRect(0,0,line.width, line.height);
+
+  ctx1.font = "16px Arial";
+  ctx1.fillText("No data yet", 20, 50);
+  ctx2.font = "16px Arial";
+  ctx2.fillText("No data yet", 20, 50);
+}
+
+function drawBarChart(data){
+  const canvas = document.getElementById('barChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth;
+  canvas.height = 220;
+
+  ctx.clearRect(0,0,canvas.width, canvas.height);
+
+  const padding = 30;
+  const barWidth = (canvas.width - padding*2) / data.length - 10;
+  const maxVal = Math.max(...data.map(d=>d.mins), 60);
+
+  ctx.strokeStyle = "#888";
+  ctx.beginPath();
+  ctx.moveTo(padding, padding);
+  ctx.lineTo(padding, canvas.height-padding);
+  ctx.lineTo(canvas.width-padding, canvas.height-padding);
+  ctx.stroke();
+
+  data.forEach((d, i) => {
+    const x = padding + i*(barWidth+10) + 10;
+    const height = (d.mins / maxVal) * (canvas.height - padding*2);
+    const y = canvas.height - padding - height;
+
+    ctx.fillStyle = "#6b6bf5";
+    ctx.fillRect(x, y, barWidth, height);
+
+    ctx.fillStyle = "#000";
+    ctx.font = "12px Arial";
+    ctx.fillText(d.date.slice(0,5), x, canvas.height - padding + 15);
+  });
+
+  ctx.fillStyle = "#000";
+  ctx.font = "14px Arial";
+  ctx.fillText("Nap minutes (last 7 days)", padding, padding-10);
+}
+
+function drawLineChart(data){
+  const canvas = document.getElementById('lineChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth;
+  canvas.height = 220;
+
+  ctx.clearRect(0,0,canvas.width, canvas.height);
+
+  const padding = 30;
+  const maxVal = Math.max(...data.map(d=>d.mins), 60);
+  const minVal = Math.min(...data.map(d=>d.mins), 0);
+
+  ctx.strokeStyle = "#888";
+  ctx.beginPath();
+  ctx.moveTo(padding, padding);
+  ctx.lineTo(padding, canvas.height-padding);
+  ctx.lineTo(canvas.width-padding, canvas.height-padding);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#6b6bf5";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+
+  data.forEach((d, i) => {
+    const x = padding + i*((canvas.width - padding*2) / (data.length-1));
+    const y = canvas.height - padding - ((d.mins - minVal) / (maxVal - minVal)) * (canvas.height - padding*2);
+
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  });
+
+  ctx.stroke();
+  ctx.fillStyle = "#000";
+  ctx.font = "14px Arial";
+  ctx.fillText("Sleep trend (last 7 days)", padding, padding-10);
+}
+
+render();
+renderTrends();
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
 });
