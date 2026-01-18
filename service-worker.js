@@ -375,7 +375,7 @@ function drawBarChart(data) {
     const height = (d.mins / maxVal) * (canvas.height - padding * 2);
     const y = canvas.height - padding - height;
 
-    ctx.fillStyle = "#6b6bf5";
+    ctx.fillStyle = "#7a3a3f";
     ctx.fillRect(x, y, barWidth, height);
 
     ctx.fillStyle = "#000";
@@ -406,7 +406,7 @@ function drawLineChart(data) {
   ctx.lineTo(canvas.width - padding, canvas.height - padding);
   ctx.stroke();
 
-  ctx.strokeStyle = "#6b6bf5";
+  ctx.strokeStyle = "#7a3a3f";
   ctx.lineWidth = 3;
   ctx.beginPath();
 
