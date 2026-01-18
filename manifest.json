@@ -4,8 +4,8 @@
   "description": "Adaptive baby sleep planner with nap tracking and trends",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f7f7fb",
-  "theme_color": "#6b6bf5",
+  "background_color": "#F5F2EE",
+  "theme_color": "#B4876E",
   "icons": [
     {
       "src": "icon-192.png",
