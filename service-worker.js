@@ -32,9 +32,22 @@ function updateNapDropdown() {
   const select = document.getElementById("napSelect");
   select.innerHTML = "";
 
-  const napCount = dynamic
-    ? Math.max(dynamic.naps, dynamic.napsRecorded.length)
-    : 5;
+  if (!dynamic) {
+    // default to 5 options when no schedule exists yet
+    for (let i = 1; i <= 5; i++) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = `Nap ${i}`;
+      select.appendChild(opt);
+    }
+    return;
+  }
+
+  const recordedMaxNap = dynamic.napsRecorded.length
+    ? Math.max(...dynamic.napsRecorded.map(n => n.nap))
+    : 0;
+
+  const napCount = Math.max(dynamic.naps, recordedMaxNap, 5);
 
   for (let i = 1; i <= napCount; i++) {
     const opt = document.createElement("option");
@@ -122,6 +135,11 @@ function adjustWakeWindow(actualDuration, expected){
 }
 
 function startNap(){
+  if (!dynamic) {
+    alert("Generate schedule first.");
+    return;
+  }
+
   timerStart = new Date();
   timer = setInterval(() => {
     const diff = Math.floor((new Date() - timerStart)/1000);
@@ -130,6 +148,11 @@ function startNap(){
 }
 
 function endNap(){
+  if (!dynamic) {
+    alert("Generate schedule first.");
+    return;
+  }
+
   if(!timerStart){
     alert("Start the nap first.");
     return;
@@ -174,9 +197,9 @@ function saveManualNap(){
 }
 
 function deleteNap(){
-  if(!dynamic) return;
-  const nap = parseInt(document.getElementById('napSelect').value);
+  if(!dynamic) return alert("Generate schedule first.");
 
+  const nap = parseInt(document.getElementById('napSelect').value);
   dynamic.napsRecorded = dynamic.napsRecorded.filter(n => n.nap !== nap);
   document.getElementById('napStatus').innerText = `Deleted Nap ${nap}`;
 
