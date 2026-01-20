@@ -4,19 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Baby Sleep Scheduler</title>
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#7a3a3f">
+
 <style>
 :root {
-  --bg:#f9f7f2;          /* pastel off-white */
-  --card:#fff;
-  --text:#2b1a15;        /* brown */
-  --muted:#6a4b3c;       /* muted brown */
-  --accent:#7a3a3f;      /* maroon */
+  --bg:#f9f7f2;
+  --card:#ffffff;
+  --text:#2b1a15;
+  --muted:#6a4b3c;
+  --accent:#7a3a3f;
   --soft:#f3ede6;
-  --good:#e9f4ef;
-  --warn:#fff2e8;
 }
+
 body.dark {
   --bg:#1a1a1a;
   --card:#2a2a2a;
@@ -24,6 +25,7 @@ body.dark {
   --muted:#b9a8a0;
   --soft:#3a3a3a;
 }
+
 body {
   margin:0;
   padding:16px;
@@ -31,25 +33,28 @@ body {
   color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
 }
-.container{max-width:520px;margin:auto}
-h1{text-align:center;font-size:1.5rem}
-.card{
+
+.container { max-width:520px; margin:auto; }
+h1 { text-align:center; }
+
+.card {
   background:var(--card);
   border-radius:18px;
   padding:16px;
   margin-bottom:16px;
-  box-shadow:0 4px 14px rgba(0,0,0,.06)
+  box-shadow:0 4px 14px rgba(0,0,0,.06);
 }
-label{font-weight:600;display:block;margin-top:12px}
-input,select,textarea{
+
+label { font-weight:600; margin-top:10px; display:block; }
+input, select, textarea {
   width:100%;
   padding:10px;
   margin-top:4px;
   border-radius:12px;
-  border:1px solid #ddd;
-  font-size:1rem
+  border:1px solid #ccc;
 }
-button{
+
+button {
   width:100%;
   padding:12px;
   margin-top:12px;
@@ -58,83 +63,63 @@ button{
   background:var(--accent);
   color:white;
   font-weight:600;
-  font-size:1rem
 }
-.secondary{background:#d9a2a7;color:#3b1b1d}
-.result{background:var(--soft);padding:12px;border-radius:14px;margin-top:12px}
-.good{background:var(--good);padding:10px;border-radius:12px}
-.warn{background:var(--warn);padding:10px;border-radius:12px}
-.muted{color:var(--muted);font-size:.85rem}
-.row{display:flex; gap:10px;}
-.row button{flex:1;}
-.napBox{background:var(--soft);padding:12px;border-radius:12px;margin-top:12px}
-canvas{width:100%; height:auto; margin-top:12px; border-radius:12px; background:var(--soft);}
+
+.secondary {
+  background:var(--soft);
+  color:var(--text);
+}
+
+.result {
+  background:var(--soft);
+  padding:12px;
+  border-radius:14px;
+  margin-top:12px;
+}
+
+.row { display:flex; gap:10px; }
+.row button { flex:1; }
+.muted { color:var(--muted); font-size:.85rem; }
 </style>
 </head>
+
 <body>
 <div class="container">
-<h1>Adaptive Baby Sleep Scheduler</h1>
+
+<h1>Baby Sleep Scheduler</h1>
 
 <div class="card">
-<label>Morning Wake Time</label>
-<input type="time" id="wake">
-<label>Baby Age Range</label>
-<select id="age">
-  <option value="0-3">0–3 months</option>
-  <option value="3-4">3–4 months</option>
-  <option value="4-6">4–6 months</option>
-  <option value="6-9">6–9 months</option>
-  <option value="9-12">9–12 months</option>
-</select>
-<label>Notes (optional)</label>
-<textarea id="notes" rows="2" placeholder="Teething, travel, illness…"></textarea>
-<button onclick="calc()">Generate Schedule</button>
-</div>
+  <label>Morning wake time</label>
+  <input type="time" id="wake">
 
-<div class="card">
-<h3>Suggested Sleep Plan</h3>
-<div id="out" class="result muted">Enter details to calculate</div>
-<button class="secondary" onclick="resetDay()">Reset Day</button>
-<button class="secondary" onclick="toggleTheme()">Toggle Dark Mode</button>
+  <label>Baby age</label>
+  <select id="age">
+    <option value="0-3">0–3 months</option>
+    <option value="3-4">3–4 months</option>
+    <option value="4-6">4–6 months</option>
+    <option value="6-9">6–9 months</option>
+    <option value="9-12">9–12 months</option>
+  </select>
+
+  <button onclick="generate()">Generate schedule</button>
+  <button class="secondary" onclick="saveDay()">Save day</button>
+  <button class="secondary" onclick="toggleTheme()">Toggle dark mode</button>
 </div>
 
 <div class="card">
-<h3>Nap Timer & Recording</h3>
-<div class="row">
-  <button onclick="startNap()">Start Nap</button>
-  <button onclick="endNap()">End Nap</button>
-</div>
-
-<label>Nap #</label>
-<select id="napSelect"></select>
-
-<div class="napBox">
-  <div id="timerStatus" class="muted">Timer not started</div>
-  <div id="napStatus" class="muted">No nap recorded yet.</div>
-</div>
-
-<hr>
-<h4>Manual Entry</h4>
-<label>Actual Nap Start</label>
-<input type="time" id="manualStart">
-<label>Actual Nap End</label>
-<input type="time" id="manualEnd">
-<button onclick="saveManualNap()" class="secondary">Save Manual Nap</button>
-<button onclick="deleteNap()" class="secondary">Delete Selected Nap</button>
+  <h3>Plan</h3>
+  <div id="output" class="muted">No plan yet</div>
 </div>
 
 <div class="card">
-<h3>Saved Days</h3>
-<div id="hist" class="muted">No saved days yet</div>
-<button class="secondary" onclick="clearHistory()">Clear All Saved Days</button>
+  <h3>Nap timer</h3>
+  <div class="row">
+    <button onclick="startNap()">Start nap</button>
+    <button onclick="endNap()">End nap</button>
+  </div>
+  <div id="napStatus" class="muted">No naps recorded</div>
 </div>
 
-<div class="card">
-<h3>Weekly Trends</h3>
-<div id="trends" class="muted">No data yet</div>
-<canvas id="barChart"></canvas>
-<canvas id="lineChart"></canvas>
-</div>
 </div>
 
 <script src="script.js"></script>
